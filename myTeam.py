@@ -213,8 +213,10 @@ class Attacker(ReflexCaptureAgent):
 
       if len(enemyDefenders)  > 0:
         if len(closeCapsules) is not 0:
-          print 'chasen,eat capsule'
-          return self.aStarSearch(closeCapsules[0], self.enemyConcernHeuristic(gameState,enemyDefenders,closeCapsules[0]))
+          for po in enemyPosition:
+            if self.getMazeDistance(po,closeCapsules[0])>2:
+              print 'chasen,eat capsule'
+              return self.aStarSearch(closeCapsules[0], self.enemyConcernHeuristic(gameState,enemyDefenders,closeCapsules[0]))
         else:
           return self.aStarSearch(back,self.enemyConcernHeuristic(gameState, enemyDefenders, back))
       else:
