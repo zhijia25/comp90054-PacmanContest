@@ -153,29 +153,30 @@ class ReflexCaptureAgent(CaptureAgent):
       closeMiddle = [m for m, d in zip(availableMiddle, middleDis) if d == min(middleDis)]
 
       goal = random.choice(closeMiddle)
-      if gameState.getAgentState(self.index).getPosition() == goal:
-        return Directions.EAST
-      return self.aStarSearch(goal, self.simpleHeuristic(gameState, goal))
+      if gameState.getAgentState(self.index).getPosition() is goal:
+        return Directions.STOP
+        print 'east'
 
     while (openSet.isEmpty() == False):
-
       currentPosition, trace = openSet.pop()
-
       if currentPosition in visitedNodes:
         continue
       visitedNodes.append(currentPosition)
-
       if currentPosition == goal:
         if len(trace)==0:
-
           return Directions.STOP
+          print 'trace=0'
         return trace[0]
+        print trace[0]
       successors = self.getSuccessors(currentPosition, self.getCurrentObservation())
       for successor in successors:
         cost = len(trace + [successor[1]])+heuristic
         openSet.push((successor[0], trace + [successor[1]]), cost)
-    return Directions.STOP
 
+
+    if goal != self.home:
+      return self.aStarSearch(self.home, self.simpleHeuristic(gameState, self.home))
+    return 'Stop'
 
 
 class Attacker(ReflexCaptureAgent):
@@ -187,24 +188,32 @@ class Attacker(ReflexCaptureAgent):
     foods=[food for food in self.getFood(gameState).asList()]
     foodDistance=[self.getMazeDistance(gameState.getAgentState(self.index).getPosition(),a) for a in foods]
     closeFood = [f for f, d in zip(foods, foodDistance) if d == min(foodDistance)]
-    values = [self.evaluate(gameState, a) for a in actions]
-    maxValue = max(values)
-    bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+    # values = [self.evaluate(gameState, a) for a in actions]
+    # maxValue = max(values)
+    # bestActions = [a for a, v in zip(actions, values) if v == maxValue]
     enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
-    enemyDefenders= [a for a in enemies if a.getPosition() != None ]
+    enemyDefenders= [a for a in enemies if a.getPosition() != None  and not a.isPacman]
     enemyPosition=[e.getPosition() for e in enemyDefenders]
-    middleLine = [(gameState.data.layout.width / 2, y) for y in range(0, gameState.data.layout.height)]
+    if self.red:
+      middleLine = [((gameState.data.layout.width / 2)-1, y) for y in range(0, gameState.data.layout.height)]
+    else:
+      middleLine = [(gameState.data.layout.width / 2, y) for y in range(0, gameState.data.layout.height)]
     availableMiddle = [a for a in middleLine if a not in self.walls]
     middleDis = [self.getMazeDistance(gameState.getAgentState(self.index).getPosition(), middle) for middle in
                  availableMiddle]
     closeMiddle = [m for m, d in zip(availableMiddle, middleDis) if d == min(middleDis)]
     back = closeMiddle[0]
-    for o in self.getOpponents(gameState):
+
+
+    if len(self.getFood(gameState).asList())==0:
+      return self.aStarSearch(back, self.enemyConcernHeuristic(gameState, enemyDefenders, back))
+
       if gameState.getAgentState(o).scaredTimer > 0:
-        print 'scared'
+        print 'enemy sick, eat'
         return self.aStarSearch(closeFood[0], self.simpleHeuristic(gameState, closeFood[0]))
 
     if not gameState.getAgentState(self.index).isPacman:
+      print 'not pac,eat'
       return self.aStarSearch(closeFood[0],self.enemyConcernHeuristic(gameState, enemyDefenders, closeFood[0]))
 
     if len(self.getCapsules(gameState)) is not 0:
@@ -215,34 +224,39 @@ class Attacker(ReflexCaptureAgent):
         if len(closeCapsules) is not 0:
           for po in enemyPosition:
             if self.getMazeDistance(po,closeCapsules[0])>2:
-              print 'chasen,eat capsule'
+              print 'chasen, eat cap'
               return self.aStarSearch(closeCapsules[0], self.enemyConcernHeuristic(gameState,enemyDefenders,closeCapsules[0]))
         else:
+          print 'cap+enemy,back'
           return self.aStarSearch(back,self.enemyConcernHeuristic(gameState, enemyDefenders, back))
       else:
-        if gameState.getAgentState(self.index).numCarrying > 15:
-          print 'enough,back'
+        if gameState.getAgentState(self.index).numCarrying >=28:
+
+          print 'enough, back'
           return self.aStarSearch(back, self.enemyConcernHeuristic(gameState, enemyDefenders, back))
         else:
-          print 'normal eat'
 
+          print 'normal eat, cap'
           return self.aStarSearch(closeFood[0], self.enemyConcernHeuristic(gameState, enemyDefenders, closeFood[0]))
     else:
       if len(enemyDefenders) > 0:
         if gameState.getAgentState(self.index).numCarrying == 0:
+          print 'no carry,eat'
           return  self.aStarSearch(closeFood[0],self.enemyConcernHeuristic(gameState, enemyDefenders, closeFood[0]))
         if gameState.getAgentState(self.index).numCarrying > 0:
-          print 'chasen,has food,back'
+
+          print 'chasen, back'
           return self.aStarSearch(back, self.enemyConcernHeuristic(gameState,enemyDefenders,  back))
         else:
-          print 'chasen,no food, eat'
+
+          print 'eat anyway'
           return self.aStarSearch(closeFood[0],self.enemyConcernHeuristic(gameState, enemyDefenders, closeFood[0]))
       else:
-        if gameState.getAgentState(self.index).numCarrying > 15:
-          print 'enough, no capsule, back'
+        if gameState.getAgentState(self.index).numCarrying >=28:
+          print 'enough, back,no cap'
           return self.aStarSearch(back, self.enemyConcernHeuristic(gameState, enemyDefenders, back))
         else:
-          print 'normal eat,no calsule'
+          print 'normal eat, no cap'
           return self.aStarSearch(closeFood[0], self.enemyConcernHeuristic(gameState, enemyDefenders, closeFood[0]))
 
 
@@ -257,31 +271,31 @@ class Attacker(ReflexCaptureAgent):
 
 
 
-  def getFeatures(self,gameState, action):
-    features=util.Counter()
-    successor=self.getSuccessor(gameState,action)
-    foodList = self.getFood(successor).asList()
-    features['successorScore'] = -len(foodList)  #
-    features['mightBeChasen']=0
-    if self.getOpponents(successor)==0:
-      features['mightBeChasen']=1
-
-
-    if len(self.getFood(gameState).asList()) > 0:
-      myPos = successor.getAgentState(self.index).getPosition()
-      minDistance = min([self.getMazeDistance(myPos, food) for food in self.getFood(successor).asList()])
-      features['distanceToFood' ] = minDistance
-
-    return  features
-
-  def getWeights(self, gameState, action):
-    return {'mightBeChasen': -50, 'distanceToFood' :-1,'successorScore': 100, }
-
-
-  def evaluate(self,gameState, action):
-    features = self.getFeatures(gameState, action)
-    weights = self.getWeights(gameState, action)
-    return features * weights
+  # def getFeatures(self,gameState, action):
+  #   features=util.Counter()
+  #   successor=self.getSuccessor(gameState,action)
+  #   foodList = self.getFood(successor).asList()
+  #   features['successorScore'] = -len(foodList)  #
+  #   features['mightBeChasen']=0
+  #   if self.getOpponents(successor)==0:
+  #     features['mightBeChasen']=1
+  #
+  #
+  #   if len(self.getFood(gameState).asList()) > 0:
+  #     myPos = successor.getAgentState(self.index).getPosition()
+  #     minDistance = min([self.getMazeDistance(myPos, food) for food in self.getFood(successor).asList()])
+  #     features['distanceToFood' ] = minDistance
+  #
+  #   return  features
+  #
+  # def getWeights(self, gameState, action):
+  #   return {'mightBeChasen': -50, 'distanceToFood' :-1,'successorScore': 100, }
+  #
+  #
+  # def evaluate(self,gameState, action):
+  #   features = self.getFeatures(gameState, action)
+  #   weights = self.getWeights(gameState, action)
+  #   return features * weights
 
 
 
@@ -332,34 +346,51 @@ class Defender(ReflexCaptureAgent):
 
           self.thisDenfending=self.thisDenfending-( gameState.getAgentState(index).numReturned-self.getPreviousObservation().getAgentState(index).numReturned)
 
+
+    for o in self.getOpponents(gameState):
+      if gameState.getAgentState(self.index).scaredTimer>0 and len(invaders) > 0:
+        if self.getMazeDistance(gameState.getAgentState(self.index).getPosition(),
+                                gameState.getAgentState(o).getPosition()) <= 2:
+          return self.aStarSearch(self.home, self.enemyConcernHeuristic(gameState, invaders,self.home))
     if len(invaders) != 0:
       invadersDis = [self.getMazeDistance(gameState.getAgentState(self.index).getPosition(), a.getPosition()) for a in
                      invaders]
       minDIs = min(invadersDis)
       target = [a for a, v in zip(invaders, invadersDis) if v == minDIs]
+      print 'see enemy'
       return self.aStarSearch(random.choice(target).getPosition(),
                               self.simpleHeuristic(gameState, random.choice(target).getPosition()))
     if self.beginEaten():
 
       if self.isEaten():
 
+        print 'enemy eating'
         return self.aStarSearch(self.getEaten(), self.simpleHeuristic(gameState, self.getEaten()))
       else:
 
+        print 'enemy ate'
         return self.aStarSearch(self.eatenFood,self.simpleHeuristic(gameState, self.eatenFood))
 
 
     else:
 
-      middleLine = [(gameState.data.layout.width / 2, y) for y in range(0, gameState.data.layout.height)]
+      if self.red:
+        middleLine = [((gameState.data.layout.width / 2)-1, y) for y in range(0, gameState.data.layout.height)]
+      else:
+        middleLine = [(gameState.data.layout.width / 2, y) for y in range(0, gameState.data.layout.height)]
       availableMiddle = [a for a in middleLine if a not in self.walls]
       middleDis = [self.getMazeDistance(gameState.getAgentState(self.index).getPosition(), middle) for middle in
                    availableMiddle]
       closeMiddle = [m for m, d in zip(availableMiddle, middleDis) if d == min(middleDis)]
       goal = closeMiddle[0]
       if gameState.getAgentState(self.index).getPosition() == goal:
+        print 'wait'
         return Directions.STOP
-      return self.aStarSearch(goal, self.simpleHeuristic(gameState, goal))
+
+
+      else:
+        print 'go to middle'
+        return self.aStarSearch(goal, self.simpleHeuristic(gameState, goal))
 
 
 
