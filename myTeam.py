@@ -205,7 +205,7 @@ class Attacker(ReflexCaptureAgent):
       return self.aStarSearch(back, enemyDefenders,1)
     for o in self.getOpponents(gameState):
       if gameState.getAgentState(o).scaredTimer > 0:
-        print 'enemy sick, eat'
+        # print 'enemy sick, eat'
         return self.aStarSearch(closeFood[0], enemyDefenders,2)
 
     if len(self.getCapsules(gameState)) != 0:
